@@ -14,72 +14,175 @@
 </head>
 <body>
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue-demi"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vuelidate/core"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vuelidate/validators"></script>
 <script src="https://cdn.jsdelivr.net/npm/vuetify@3.5.16/dist/vuetify.min.js"></script>
+
 <div id="app">
-    <v-app >
+    <v-app>
         <v-container
                 class="d-flex align-center justify-center"
                 style="height: 100vh;"
         >
             <v-sheet height="600" :width="800">
-                <v-toolbar color="white" >
+                <v-toolbar color="white">
                     <v-toolbar-title>
                         <div>
                             <div>Lista de Contatos</div>
-                            <div style=" opacity: 0.7;">Adicionar, editar ou excluir contatos</div>
+                            <div style="opacity: 0.7;">Adicionar, editar ou excluir contatos</div>
                         </div>
                     </v-toolbar-title>
-                    <v-btn icon>
-                        <v-icon>mdi-account-plus</v-icon>
+                    <v-btn icon @click="criarContato">
+                        <v-icon>mdi-account-plus-outline</v-icon>
                     </v-btn>
                 </v-toolbar>
+
                 <v-divider class="border-opacity-100"></v-divider>
+
                 <! -- Lista de contatos -->
-                <v-list>
-                    <v-list-item class="list-item">
-                        <v-list-item-content>
-                            <v-list-item-title>João Silva</v-list-item-title>
-                            <v-list-item-subtitle>(79)9999-99999</v-list-item-subtitle>
-                        </v-list-item-content>
+                <v-data-table
+                        :headers="headers"
+                        :items="items"
+                        class="elevation-1"
+                >
+                    <!-- Slot para a coluna 'actions' -->
+                    <template v-slot:item.actions="{ item }">
+                        <v-btn style="margin: 8px" icon size="small" @click="editar">
+                            <v-icon>mdi-account-edit-outline</v-icon>
+                        </v-btn>
+                        <v-btn icon color="error" size="small" @click="excluir(item)">
+                            <v-icon>mdi-delete-outline</v-icon>
+                        </v-btn>
+                    </template>
+                </v-data-table>
 
-                        <v-list-item-action>
-                            <v-btn icon color="black">
-                                <v-icon>mdi-pencil</v-icon>
-                            </v-btn>
-                            <v-btn icon color="black">
-                                <v-icon>mdi-delete</v-icon>
-                            </v-btn>
-                        </v-list-item-action>
-                    </v-list-item>
-
-                </v-list>
-
-                <v-pagination length="4"></v-pagination>
+                <v-dialog v-model="dialog" max-width="500">
+                    <v-card>
+                        <v-card-title>{{ titleModal }}</v-card-title>
+                        <v-form ref="form" @submit.prevent="submitForm">
+                            <v-text-field
+                                    :rules="[v => !!v || 'Nome é obrigatório']"
+                                    label="Nome" placeholder="Ex: João Silva"
+                                    required
+                                    v-model="contato.nome"></v-text-field>
+                            <v-text-field  :rules="[v => !!v || 'Número é obrigatório']"
+                                           label="Número" required
+                                           v-model="contato.numero_contato"></v-text-field>
+                            </v-text-field>
+                            <v-card-actions>
+                                <v-spacer></v-spacer>
+                                <v-btn text type="submit">{{button}}</v-btn>
+                                <v-btn text @click="dialog = false">Cancelar</v-btn>
+                            </v-card-actions>
+                        </v-form>
+                    </v-card>
+                </v-dialog>
             </v-sheet>
-
         </v-container>
     </v-app>
 </div>
 
 <script>
-    const { createApp, ref } = Vue
+    const { createApp, ref, onMounted, reactive } = Vue
     const { createVuetify } = Vuetify
+    const { useVuelidate } = Vuelidate
+    const { required } = VuelidateValidators
 
     const vuetify = createVuetify()
+
     createApp({
         setup() {
-            const message = ref('Eae meu amigo')
+            const dialog = ref(false)
+            const form = ref(null)
+            const headers = ref([
+                { title: 'Nome', key: 'nome' },
+                { title: 'Telefone', key: 'numero_contato', sortable: false },
+                { key: 'actions', sortable: false } // coluna extra
+            ])
+
+            const items = ref([])
+
+            async function carregarContatos() {
+                const res = await fetch("http://localhost:3000/contatos")
+                items.value = await res.json()
+            }
+
+            const titleModal = ref('');
+            const button = ref('')
+
+            const contato = reactive({
+                nome: '',
+                numero_contato: ''
+            })
+
+          function criarContato() {
+                titleModal.value = 'Adicionar Contato'
+                button.value = 'Adicionar'
+                dialog.value = true;
+            }
+
+            async function submitForm() {
+                if (!form.value.validate()) return
+
+                try {
+                    const response = await fetch("http://localhost:3000/adicionr", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(contato)
+                    });
+                    console.log("Código HTTP:", response.status); // ex: 201, 400, 500
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log("Contato salvo:", data);
+                        carregarContatos();
+                        dialog.value = false;
+                    } else {
+                        const errorText = await response.json(); // ou response.json() se o backend retornar JSON
+                        console.error("Erro ao salvar:", response.status, errorText);
+                        alert(`Erro ${response.status}: ${errorText}`);
+                    }
+                } catch (error) {
+                    console.error('Erro ao realizar requisição:', error)
+                }
+            }
+
+            function editar() {
+                titleModal.value = 'Editar Contato'
+                button.value = 'Salvar'
+                dialog.value = true;
+            }
+
+            function excluir() {
+                dialog.value = true
+            }
+            // 🔹 Chama automaticamente quando o componente é montado
+            onMounted(() => {
+                carregarContatos()
+            })
+
             return {
-                message
+                headers,
+                items,
+                editar,
+                excluir,
+                dialog,
+                titleModal,
+                button,
+                contato,
+                criarContato,
+                carregarContatos,
+                submitForm,
+                form
             }
         }
     })
         .use(vuetify)
         .mount('#app')
 </script>
-
-
-
 </body>
 
 <style>
