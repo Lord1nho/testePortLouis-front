@@ -48,7 +48,7 @@
                 >
                     <!-- Slot para a coluna 'actions' -->
                     <template v-slot:item.actions="{ item }">
-                        <v-btn style="margin: 8px" icon size="small" @click="editar">
+                        <v-btn style="margin: 8px" icon size="small" @click="editar(item)">
                             <v-icon>mdi-account-edit-outline</v-icon>
                         </v-btn>
                         <v-btn icon color="error" size="small" @click="excluir(item)">
@@ -62,18 +62,21 @@
                         <v-card-title>{{ titleModal }}</v-card-title>
                         <v-form ref="form" @submit.prevent="submitForm">
                             <v-text-field
-                                    :rules="[v => !!v || 'Nome é obrigatório']"
+                                    :rules="[validaNome]"
                                     label="Nome" placeholder="Ex: João Silva"
                                     required
                                     v-model="contato.nome"></v-text-field>
-                            <v-text-field  :rules="[v => !!v || 'Número é obrigatório']"
+                            <v-text-field
+                                    :rules="[v => !!v || 'Número é obrigatório',
+                                             v => v.length >= 8 || 'Número deve ter pelo menos 8 dígitos']"
                                            label="Número" required
+                                           @input="regexTelephone"
                                            v-model="contato.numero_contato"></v-text-field>
                             </v-text-field>
                             <v-card-actions>
                                 <v-spacer></v-spacer>
                                 <v-btn text type="submit">{{button}}</v-btn>
-                                <v-btn text @click="dialog = false">Cancelar</v-btn>
+                                <v-btn text @click="reset()">Cancelar</v-btn>
                             </v-card-actions>
                         </v-form>
                     </v-card>
@@ -106,15 +109,22 @@
             async function carregarContatos() {
                 const res = await fetch("http://localhost:3000/contatos")
                 items.value = await res.json()
+                console.log(items.value);
             }
 
             const titleModal = ref('');
             const button = ref('')
 
             const contato = reactive({
+                id: null,
                 nome: '',
                 numero_contato: ''
             })
+
+            function reset() {
+                form.value.reset()
+                dialog.value = false
+            }
 
           function criarContato() {
                 titleModal.value = 'Adicionar Contato'
@@ -122,11 +132,60 @@
                 dialog.value = true;
             }
 
-            async function submitForm() {
-                if (!form.value.validate()) return
+            function validaNome(v) {
+                if (!v) return 'Nome é obrigatório'
+                const partes = v.trim().split(' ')
+                if (partes.length < 2) return 'Nome deve conter ao menos 2 palavras'
+                if (partes.some(p => p.length < 3)) return 'Cada palavra deve ter no mínimo 3 letras'
+                return true
+            }
 
+            function editar(item) {
+                titleModal.value = 'Editar Contato'
+                contato.id = item.id        // pega o id
+                contato.nome = item.nome
+                contato.numero_contato = item.numero_contato
+                button.value = 'Salvar'
+                dialog.value = true;
+            }
+
+            async function excluir(item) {
                 try {
-                    const response = await fetch("http://localhost:3000/adicionr", {
+                    const response = await fetch(`http://localhost:3000/deleteUser/${item.id}`, {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(contato)
+                    });
+                    console.log("Código HTTP:", response.status); // ex: 201, 400, 500
+
+                    if (response.ok) {
+                        carregarContatos();
+                    } else {
+                        const errorText = await response.json(); // ou response.json() se o backend retornar JSON
+                        console.error("Erro ao salvar:", response.status, errorText);
+                        alert(`Erro ${response.status}: ${errorText}`);
+                    }
+                } catch (error) {
+                    console.error('Erro ao realizar requisição:', error)
+                }
+            }
+
+            async function submitForm() {
+                const { valid } = await form.value.validate()
+                if (!valid) return
+                console.log(form.value.valid)
+                if (button.value === 'Adicionar') {
+                    adicionaContato();
+                } else {
+                    editaContato(contato.id);
+                }
+            }
+
+            async function adicionaContato(){
+                try {
+                    const response = await fetch("http://localhost:3000/adicionar", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
@@ -139,26 +198,59 @@
                         const data = await response.json();
                         console.log("Contato salvo:", data);
                         carregarContatos();
+                        reset();
                         dialog.value = false;
                     } else {
                         const errorText = await response.json(); // ou response.json() se o backend retornar JSON
                         console.error("Erro ao salvar:", response.status, errorText);
-                        alert(`Erro ${response.status}: ${errorText}`);
                     }
                 } catch (error) {
                     console.error('Erro ao realizar requisição:', error)
                 }
             }
 
-            function editar() {
-                titleModal.value = 'Editar Contato'
-                button.value = 'Salvar'
-                dialog.value = true;
+            async function editaContato(id) {
+                try {
+                    const response = await fetch(`http://localhost:3000/editarUser/${id}`, {
+                        method: "PATCH",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            nome: contato.nome,
+                            numero_contato: contato.numero_contato
+                        })
+                    });
+
+                    console.log("Código HTTP:", response.status);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log("Contato atualizado:", data);
+                        carregarContatos();
+                        reset();
+                        dialog.value = false;
+                    } else {
+                        const errorText = await response.json();
+                        console.error("Erro ao editar:", response.status, errorText);
+                        alert(`Erro ${response.status}: ${errorText}`);
+                    }
+                } catch (error) {
+                    console.error("Erro ao realizar requisição:", error);
+                }
             }
 
-            function excluir() {
-                dialog.value = true
+
+            function regexTelephone() {
+                // Remove tudo que não é dígito
+                let telefone = contato.numero_contato
+                telefone = telefone.replace(/\D/g, '');
+
+                telefone = telefone.replace(/^(\d{2})(\d)/, '($1) $2');
+                telefone = telefone.replace(/(\d)(\d{4})$/, '$1-$2');
+                contato.numero_contato = telefone;
             }
+
             // 🔹 Chama automaticamente quando o componente é montado
             onMounted(() => {
                 carregarContatos()
@@ -174,9 +266,11 @@
                 button,
                 contato,
                 criarContato,
-                carregarContatos,
                 submitForm,
-                form
+                form,
+                reset,
+                regexTelephone,
+                validaNome
             }
         }
     })
