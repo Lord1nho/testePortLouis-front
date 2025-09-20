@@ -60,7 +60,7 @@
                 <v-dialog v-model="dialog" max-width="500">
                     <v-card>
                         <v-card-title>{{ titleModal }}</v-card-title>
-                        <v-form ref="form" @submit.prevent="submitForm">
+                        <v-form v-model="formOk" ref="form" @submit.prevent="submitForm">
                             <v-text-field
                                     :rules="[validaNome]"
                                     label="Nome" placeholder="Ex: João Silva"
@@ -75,7 +75,7 @@
                             </v-text-field>
                             <v-card-actions>
                                 <v-spacer></v-spacer>
-                                <v-btn text type="submit">{{button}}</v-btn>
+                                <v-btn :disabled="!formOk" text type="submit">{{button}}</v-btn>
                                 <v-btn text @click="reset()">Cancelar</v-btn>
                             </v-card-actions>
                         </v-form>
@@ -96,8 +96,8 @@
 
     createApp({
         setup() {
-            const dialog = ref(false)
-            const form = ref(null)
+
+            /* CONSTRUÇÃO DA LISTA */
             const headers = ref([
                 { title: 'Nome', key: 'nome' },
                 { title: 'Telefone', key: 'numero_contato', sortable: false },
@@ -112,9 +112,12 @@
                 console.log(items.value);
             }
 
+
+
+            const dialog = ref(false)
+            const form = ref(false)
             const titleModal = ref('');
             const button = ref('')
-
             const contato = reactive({
                 id: null,
                 nome: '',
@@ -172,10 +175,13 @@
                 }
             }
 
+            let formOk = ref(false)
             async function submitForm() {
+
                 const { valid } = await form.value.validate()
                 if (!valid) return
                 console.log(form.value.valid)
+                formOk.value = true;
                 if (button.value === 'Adicionar') {
                     adicionaContato();
                 } else {
@@ -270,7 +276,8 @@
                 form,
                 reset,
                 regexTelephone,
-                validaNome
+                validaNome,
+                formOk
             }
         }
     })
