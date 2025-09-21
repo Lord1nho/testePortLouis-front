@@ -22,18 +22,18 @@
 <div id="app">
     <v-app>
         <v-container
-                class="d-flex align-center justify-center"
+                class="d-flex align-center justify-center "
                 style="height: 100vh;"
         >
-            <v-sheet height="600" :width="800">
-                <v-toolbar color="white">
+            <v-sheet  class="pa-2 rounded-lg bg-grey-lighten-3" width="800">
+                <v-toolbar class="bg-grey-lighten-3 mb-4 mt-2">
                     <v-toolbar-title>
-                        <div>
-                            <div>Lista de Contatos</div>
-                            <div style="opacity: 0.7;">Adicionar, editar ou excluir contatos</div>
+                        <div >
+                            <h2>Lista de Contatos</h2>
+                            <p style="opacity: 0.7;">Adicionar, editar ou excluir contatos</p>
                         </div>
                     </v-toolbar-title>
-                    <v-btn icon @click="criarContato">
+                    <v-btn class="elevation-0" variant="plain" icon @click="criarContato">
                         <v-icon>mdi-account-plus-outline</v-icon>
                     </v-btn>
                 </v-toolbar>
@@ -41,56 +41,66 @@
                 <v-divider class="border-opacity-100"></v-divider>
 
                 <! -- Lista de contatos -->
-                <v-data-table
+                <v-data-table class="bg-grey-lighten-3"
                         :headers="headers"
                         :items="items"
-                        class="elevation-1"
+                        no-data-text="Sem Contatos a Exibir"
+                        items-per-page-text="Contatos por página"
+                        items-per-page="5"
+                        :items-per-page-options="[5, 10, 15, -1]"
                 >
                     <!-- Slot para a coluna 'actions' -->
-                    <template v-slot:item.actions="{ item }">
-                        <v-btn style="margin: 8px" icon size="small" @click="editar(item)">
-                            <v-icon>mdi-account-edit-outline</v-icon>
-                        </v-btn>
-                        <v-btn icon color="error" size="small" @click="excluir(item)">
-                            <v-icon>mdi-delete-outline</v-icon>
-                        </v-btn>
+                    <template v-slot:item="{ item }">
+                        <tr :class="item.numero_contato?.startsWith('(11)') ? 'background11' : ''">
+                            <td>{{ item.nome }}</td>
+                            <td>{{ item.numero_contato }}</td>
+                            <td class="d-flex align-center justify-end">
+                                <v-btn variant="plain"  style="margin: 8px"  icon class="elevation-0" @click="editar(item)">
+                                    <v-icon>mdi-account-edit-outline</v-icon>
+                                </v-btn>
+                                <v-btn variant="plain" icon class="elevation-0" @click="excluir(item)">
+                                    <v-icon color="error">mdi-delete-outline</v-icon>
+                                </v-btn>
+                            </td>
+                        </tr>
                     </template>
                 </v-data-table>
 
-                <v-dialog v-model="dialog" max-width="500">
-                    <v-card>
-                        <v-card-title>{{ titleModal }}</v-card-title>
-                        <v-form v-model="formOk" ref="form" @submit.prevent="submitForm">
-                            <v-text-field
-                                    :rules="[validaNome]"
-                                    label="Nome" placeholder="Ex: João Silva"
-                                    required
-                                    v-model="contato.nome"></v-text-field>
-                            <v-text-field
-                                    :rules="[v => !!v || 'Número é obrigatório',
-                                             v => v.length >= 8 || 'Número deve ter pelo menos 8 dígitos']"
-                                           label="Número" required
-                                           @input="regexTelephone"
-                                           v-model="contato.numero_contato"></v-text-field>
-                            </v-text-field>
-                            <v-card-actions>
-                                <v-spacer></v-spacer>
-                                <v-btn :disabled="!formOk" text type="submit">{{button}}</v-btn>
-                                <v-btn text @click="reset()">Cancelar</v-btn>
-                            </v-card-actions>
-                        </v-form>
-                    </v-card>
-                </v-dialog>
+
             </v-sheet>
         </v-container>
     </v-app>
+    <v-dialog v-model="dialog" max-width="500" >
+        <v-card class="px-4 py-2" v-click-outside="reset">
+            <v-card-title class="pa-0 mb-4 mt-2">{{ titleModal }}</v-card-title>
+            <v-form v-model="formOk" ref="form" @submit.prevent="submitForm">
+                <v-text-field
+                        variant="outlined"
+                        :rules="[validaNome]"
+                        label="Nome" placeholder="Ex: João Silva"
+                        required
+                        v-model="contato.nome"></v-text-field>
+                <v-text-field
+                        variant="outlined"
+                        :rules="[v => !!v || 'Número é obrigatório',
+                                             v => v.length === 14  || 'Formato (XX) XXXX-XXXX']"
+                        label="Número" required
+                        @input="regexTelephone"
+                        v-model="contato.numero_contato"></v-text-field>
+                </v-text-field>
+                <v-card-actions >
+                    <v-spacer></v-spacer>
+                    <v-btn class="px-5" :disabled="!formOk" text type="submit">{{button}}</v-btn>
+                    <v-btn class="px-5" text @click="reset()">Cancelar</v-btn>
+                </v-card-actions>
+            </v-form>
+        </v-card>
+    </v-dialog>
 </div>
 
 <script>
     const { createApp, ref, onMounted, reactive } = Vue
     const { createVuetify } = Vuetify
-    const { useVuelidate } = Vuelidate
-    const { required } = VuelidateValidators
 
     const vuetify = createVuetify()
 
@@ -105,7 +115,7 @@
             ])
 
             const items = ref([])
-
+            const page = ref(1)
             async function carregarContatos() {
                 const res = await fetch("http://localhost:3000/contatos")
                 items.value = await res.json()
@@ -113,7 +123,7 @@
             }
 
 
-
+            /*  variáveis utilizadas */
             const dialog = ref(false)
             const form = ref(false)
             const titleModal = ref('');
@@ -124,15 +134,12 @@
                 numero_contato: ''
             })
 
-            function reset() {
-                form.value.reset()
-                dialog.value = false
-            }
 
-          function criarContato() {
-                titleModal.value = 'Adicionar Contato'
-                button.value = 'Adicionar'
-                dialog.value = true;
+            /* reset, validações e regex */
+            function reset() {
+                dialog.value = false;
+                contato.nome = ''
+                contato.numero_contato = ''
             }
 
             function validaNome(v) {
@@ -143,50 +150,22 @@
                 return true
             }
 
-            function editar(item) {
-                titleModal.value = 'Editar Contato'
-                contato.id = item.id        // pega o id
-                contato.nome = item.nome
-                contato.numero_contato = item.numero_contato
-                button.value = 'Salvar'
+            function regexTelephone() {
+                // Remove tudo que não é dígito
+                let telefone = contato.numero_contato
+                telefone = telefone.replace(/\D/g, '');
+
+                telefone = telefone.replace(/^(\d{2})(\d)/, '($1) $2');
+                telefone = telefone.replace(/(\d)(\d{4})$/, '$1-$2');
+                contato.numero_contato = telefone;
+            }
+
+            /* CREATE */
+
+          function criarContato() {
+                titleModal.value = 'Adicionar Contato'
+                button.value = 'Adicionar'
                 dialog.value = true;
-            }
-
-            async function excluir(item) {
-                try {
-                    const response = await fetch(`http://localhost:3000/deleteUser/${item.id}`, {
-                        method: "DELETE",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify(contato)
-                    });
-                    console.log("Código HTTP:", response.status); // ex: 201, 400, 500
-
-                    if (response.ok) {
-                        carregarContatos();
-                    } else {
-                        const errorText = await response.json(); // ou response.json() se o backend retornar JSON
-                        console.error("Erro ao salvar:", response.status, errorText);
-                        alert(`Erro ${response.status}: ${errorText}`);
-                    }
-                } catch (error) {
-                    console.error('Erro ao realizar requisição:', error)
-                }
-            }
-
-            let formOk = ref(false)
-            async function submitForm() {
-
-                const { valid } = await form.value.validate()
-                if (!valid) return
-                console.log(form.value.valid)
-                formOk.value = true;
-                if (button.value === 'Adicionar') {
-                    adicionaContato();
-                } else {
-                    editaContato(contato.id);
-                }
             }
 
             async function adicionaContato(){
@@ -203,7 +182,7 @@
                     if (response.ok) {
                         const data = await response.json();
                         console.log("Contato salvo:", data);
-                        carregarContatos();
+                        await carregarContatos();
                         reset();
                         dialog.value = false;
                     } else {
@@ -213,6 +192,18 @@
                 } catch (error) {
                     console.error('Erro ao realizar requisição:', error)
                 }
+            }
+
+
+            /* UPDATE */
+
+            function editar(item) {
+                titleModal.value = 'Editar Contato'
+                contato.id = item.id        // pega o id
+                contato.nome = item.nome
+                contato.numero_contato = item.numero_contato
+                button.value = 'Salvar'
+                dialog.value = true;
             }
 
             async function editaContato(id) {
@@ -233,7 +224,7 @@
                     if (response.ok) {
                         const data = await response.json();
                         console.log("Contato atualizado:", data);
-                        carregarContatos();
+                        await carregarContatos();
                         reset();
                         dialog.value = false;
                     } else {
@@ -246,16 +237,47 @@
                 }
             }
 
+            /* DELETE */
 
-            function regexTelephone() {
-                // Remove tudo que não é dígito
-                let telefone = contato.numero_contato
-                telefone = telefone.replace(/\D/g, '');
+            async function excluir(item) {
+                try {
+                    const response = await fetch(`http://localhost:3000/deleteUser/${item.id}`, {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(contato)
+                    });
+                    console.log("Código HTTP:", response.status);
 
-                telefone = telefone.replace(/^(\d{2})(\d)/, '($1) $2');
-                telefone = telefone.replace(/(\d)(\d{4})$/, '$1-$2');
-                contato.numero_contato = telefone;
+                    if (response.ok) {
+                       await carregarContatos();
+                    } else {
+                        const errorText = await response.json();
+                        console.error("Erro ao salvar:", response.status, errorText);
+                        alert(`Erro ${response.status}: ${errorText}`);
+                    }
+                } catch (error) {
+                    console.error('Erro ao realizar requisição:', error)
+                }
             }
+
+            /* SUBMIT FORM */
+
+            let formOk = ref(false)
+            async function submitForm() {
+
+                const { valid } = await form.value.validate()
+                if (!valid) return
+                console.log(form.value.valid)
+                formOk.value = true;
+                if (button.value === 'Adicionar') {
+                    adicionaContato();
+                } else {
+                    editaContato(contato.id);
+                }
+            }
+
 
             // 🔹 Chama automaticamente quando o componente é montado
             onMounted(() => {
@@ -288,13 +310,13 @@
 
 <style>
     .v-application {
-        background: linear-gradient(to bottom, #F68E8E, #D3D3D3);
+        background-image: linear-gradient(to right, #243949 0%, #517fa4 100%);
         font-family: 'Montserrat', sans-serif;
     }
 
-    .list-item {
-        background-color: #D9D9D9;
-        width: 650px;
-    }
+   .background11 {
+       background-color: #517FA4FF
+   }
+
 </style>
 </html>
